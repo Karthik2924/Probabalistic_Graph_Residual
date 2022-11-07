@@ -129,7 +129,9 @@ class AdaptiveMessagePassing(MessagePassing):
             gmY = GaussianMixture(n_components=1, random_state=0).fit(y.detach().to('cpu').numpy())
             scaled_KL = self.compute_fast_KL(m1=gmXin.means_[0], s1=gmXin.covariances_[0], p1 = gmXin.precisions_[0],
                                             m2=gmY.means_[0], s2 = gmY.covariances_[0], p2 = gmY.precisions_[0])
-            x = hh + (1-scaled_KL)*(y-hh) #we use 1-kl because we want to more heavily weigh closer samples.
+            #x = hh + (1-scaled_KL)*(y-hh) #we use 1-kl because we want to more heavily weigh closer samples.
+            x = hh + (scaled_KL)*(y-hh) #we use 1-kl because we want to more heavily weigh closer samples.
+
             #x = hh + self.proximal_L21(x=y - hh, lambda_=gamma * lambda_amp) # Equation (11) and (12)
         return x
 
