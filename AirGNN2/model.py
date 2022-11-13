@@ -11,9 +11,10 @@ from torch_sparse import SparseTensor, matmul
 from sklearn.mixture import GaussianMixture
 import numpy as np
 import torch.nn.functional as F
-#kl_loss = torch.nn.KLDivLoss(reduction="batchmean",log_target = True)
+kl_loss = torch.nn.KLDivLoss(reduction="none",log_target = True)
 import torch.nn.functional as F
 from scipy.stats import entropy
+
 
 
 class AirGNN(torch.nn.Module):
@@ -148,58 +149,49 @@ class AdaptiveMessagePassing(MessagePassing):
 
 #             #x = hh + self.proximal_L21(x=y - hh, lambda_=gamma * lambda_amp) # Equation (11) and (12)
 #         return x
-    def amp_forward(self, x, hh, K, edge_index):
+#     def amp_forward(self, x, hh, K, edge_index):
+#         lambda_amp = self.args.lambda_amp
+#         gamma = 1 / (2 * (1 - lambda_amp))  ## or simply gamma = 1
+
+#         for k in range(K):
+#             y = x - gamma * 2 * (1 - lambda_amp) * self.compute_LX(x=x, edge_index=edge_index)  # Equation (9)
+ 
+#             k = np.zeros((hh.size()[0],1))
+#             for i in range(hh.size()[0]):
+#                 unscaled = entropy(F.softmax(hh[i]).to('cpu').detach().numpy(),F.softmax(y[i]).to('cpu').detach().numpy())
+#                 k[i][0] = 1 - np.exp(unscaled)
+#                 #k[i][0]=entropy(F.softmax(hh[i]).to('cpu').detach().numpy(),F.softmax(y[i]).to('cpu').detach().numpy())
+           
+#             x = hh + torch.tensor(k).to('cuda')*(y-hh)
+
+#             #x = hh + self.proximal_L21(x=y - hh, lambda_=gamma * lambda_amp) # Equation (11) and (12)
+#         return x
+
+
+    def amp_forward(self, x, hh, K, edge_index,alpha):
         lambda_amp = self.args.lambda_amp
         gamma = 1 / (2 * (1 - lambda_amp))  ## or simply gamma = 1
-        # global XX
-        # global YY
-        # global HH
-        # global gKL
-        # HH = hh
-        # XX = x
-        #print(f"size of x = {x.size()},value of K = {K},size of hh = {hh.size()}")
+        
+  
         for k in range(K):
             y = x - gamma * 2 * (1 - lambda_amp) * self.compute_LX(x=x, edge_index=edge_index)  # Equation (9)
-            # if k==0:
-            #   YY = y
-              #print(f"size of y = {y.size()}")
-            # gmXin = GaussianMixture(n_components=1, random_state=0).fit(hh.detach().to('cpu').numpy())
-            # gmY = GaussianMixture(n_components=1, random_state=0).fit(y.detach().to('cpu').numpy())
-            # scaled_KL = self.compute_fast_KL(m1=gmXin.means_[0], s1=gmXin.covariances_[0], p1 = gmXin.precisions_[0],
-            #                                 m2=gmY.means_[0], s2 = gmY.covariances_[0], p2 = gmY.precisions_[0])
-            # gKL.append(scaled_KL)
-            #hh = hh.to('cpu')
-            #y = y.to('cpu')
-            # print(y.shape[0])
-            # gmX = [j for j in [GaussianMixture(n_components = 1,random_state = 0).fit(hh[i].detach().numpy().reshape(-1,1)) for i in range(0,2485)]]
-            # gmy = [j for j in [GaussianMixture(n_components = 1,random_state = 0).fit(y[i].detach().numpy().reshape(-1,1)) for i in range(0,2485)]]
-            k = np.zeros((hh.size()[0],1))
-            for i in range(hh.size()[0]):
-                unscaled = entropy(F.softmax(hh[i]).to('cpu').detach().numpy(),F.softmax(y[i]).to('cpu').detach().numpy())
-                k[i][0] = 
-                #k[i][0]=entropy(F.softmax(hh[i]).to('cpu').detach().numpy(),F.softmax(y[i]).to('cpu').detach().numpy())
-            # k.to('cuda')
+      
+            # k = np.zeros((hh.size()[0],1))
             # for i in range(hh.size()[0]):
-            #     k_unscaled = kl_loss(hh[i], y[i]).detach()
-            #     k[i][0] = 1-torch.exp(-k_unscaled)
-                # k[i][0] = kl_loss(hh[i], y[i]).detach()
+            #     unscaled = entropy(F.softmax(hh[i]).to('cpu').detach().numpy(),F.softmax(y[i]).to('cpu').detach().numpy())
+            #     scaled = 1-np.exp(-unscaled)
+            #     k[i][0] = 1-np.exp(-unscaled)
+            # k = np.where(k<np.percentile(k,90),0,0.1)
+            k = kl_loss(F.log_softmax(hh),F.log_softmax(y))
+            k = k.sum(dim =1)
+            k = torch.where(k<torch.quantile(k,0.9),0,0.1)
+            #print("*****************",k.size())
                 
-            #print("*********************",k.size(),hh.size(),y.size(),x.size(),"*************")
-            # kl  = [k for k in [self.compute_fast_KL(m1 = hh[i].mean().detach(),s1 = hh[i].cov().detach(), p1 = 1/hh[i].cov().detach(),
-            #                                         m2 = y[i].mean().detach(),s2 = y[i].cov().detach(), p2 = 1/y[i].cov().detach()) for i in range(y.size()[0])]]
-            # kl = [k for k in [self.compute_fast_KL(m1 = gmX[i].means_[0],s1 = gmX[i].covariances_[0],p1 = gmX[i].precisions_[0],
-            # m2 = gmy[i].means_[0],s2 = gmy[i].covariances_[0],p2 = gmy[i].precisions_[0]) for i in range(2485)]]
-
-            # gmX = [j for j in GaussianMixture(n_components = 1,random_state = 0).fit(hh[i].detach().to('cpu').numpy()) for i in range(0,2708)]
-            # gmy = [j for j in GaussianMixture(n_components = 1,random_state = 0).fit(y[i].detach().to('cpu').numpy()) for i in range(0,2708)]
-            # kl = [k for k in ]
-            #x = hh + (1-scaled_KL)*(y-hh) #we use 1-kl because we want to more heavily weigh closer samples.
-            #x = hh + (scaled_KL)*(y-hh) #we use 1-kl because we want to more heavily weigh closer samples.
-            x = hh + torch.tensor(k).to('cuda')*(y-hh)
+ 
+            x = alpha * hh + (1 - alpha)*y + k.unsqueeze(1)*(y-hh)
 
             #x = hh + self.proximal_L21(x=y - hh, lambda_=gamma * lambda_amp) # Equation (11) and (12)
         return x
-#results = Parallel(n_jobs=num_cores)(delayed(processInput)(i) for i in inputs
 
     def proximal_L21(self, x: Tensor, lambda_):
         row_norm = torch.norm(x, p=2, dim=1)
