@@ -193,7 +193,7 @@ class AdaptiveMessagePassing(MessagePassing):
             # k = np.where(k<np.percentile(k,90),0,0.1)
             k = kl_loss(F.log_softmax(hh),F.log_softmax(y))
             k = k.sum(dim =1)
-            k = torch.where(k<torch.quantile(k,0.9),0,0.1)
+            k = torch.where(k<torch.quantile(k,0.9),0.0,0.1)
             #print("*****************",k.size())
                 
    
