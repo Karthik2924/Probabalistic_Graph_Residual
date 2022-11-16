@@ -191,15 +191,15 @@ class AdaptiveMessagePassing(MessagePassing):
             #     scaled = 1-np.exp(-unscaled)
             #     k[i][0] = 1-np.exp(-unscaled)
             # k = np.where(k<np.percentile(k,90),0,0.1)
-            k = kl_loss(F.log_softmax(hh),F.log_softmax(y))
-            k = k.sum(dim =1)
-            k = torch.where(k<torch.quantile(k,0.9),0.0,0.1)
+            kl = kl_loss(F.log_softmax(hh),F.log_softmax(y))
+            kl = kl.sum(dim =1)
+            kl = torch.where(kl<torch.quantile(kl,0.9),0.0,0.1)
             #print("*****************",k.size())
                 
    
               # x = hh + (1-scaled_KL)*(y-hh) #we use 1-kl because we want to more heavily weigh closer samples.
               # x = hh + (scaled_KL)*(y-hh) #we use 1-kl because we want to more heavily weigh closer samples.
-            x = alpha * hh + (1 - alpha)*y + k.unsqueeze(1)*(y-hh)
+            x = alpha * hh + (1 - alpha)*y + kl.unsqueeze(1)*(y-hh)
 
             #x = hh + self.proximal_L21(x=y - hh, lambda_=gamma * lambda_amp) # Equation (11) and (12)
         return x
