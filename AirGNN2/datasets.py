@@ -4,8 +4,35 @@ import torch
 from torch_geometric.datasets import Planetoid, Coauthor, Amazon
 import torch_geometric.transforms as T
 from deeprobust.graph.data import Dataset, Dpr2Pyg
+from torch_geometric.transforms import BaseTransform
+from torch_geometric.data import Data
 
 import argparse
+
+class AddGaussianNoise(BaseTransform):
+    def __init__(self, mean=0., std=1.,p=0.2):
+        self.std = std
+        self.mean = mean
+        self.p = p
+        
+    def __call__(self, data):
+        # print(torch.unique(data.x))
+        # print(type(data.x))
+        # print("hi")
+        # print(data.size())
+        # print(data.x.size())
+        # if torch.rand(1)>self.p:
+        #     return data
+        # else:
+        k = torch.randn(data.x.size()[0])
+        k = torch.where(k<0.2,1.,0.)
+        return Data(x = data.x + k.unsqueeze(1)*torch.randn(data.x.size()) * self.std + self.mean, 
+                    y = data.y, train_mask = data.train_mask, val_mask = data.val_mask,
+                   test_mask = data.test_mask, adj_t = data.adj_t)
+
+    
+    def __repr__(self):
+        return self.__class__.__name__ + '(mean={0}, std={1})'.format(self.mean, self.std)
 
 def str2bool(v):
     if v.lower() in ('yes', 'true', 't', 'y', '1'):
@@ -20,7 +47,11 @@ def uniqueId(dataset_name, target_node, perturbation):
 
 
 def prepare_data(args, lcc=False):
-    transform = T.ToSparseTensor()
+    #transform = T.ToSparseTensor()
+    transform=T.Compose([
+    T.ToSparseTensor(),
+    AddGaussianNoise(0., 1.)
+    ])
     if args.dataset == "Cora" or args.dataset == "CiteSeer" or args.dataset == "PubMed":
         if lcc:
             dpr_data = Dataset(root='/tmp/', name=(args.dataset).lower())
