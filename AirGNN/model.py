@@ -1,3 +1,4 @@
+import tqdm
 import torch
 import torch.nn.functional as F
 from torch.nn import Linear
@@ -9,6 +10,11 @@ from torch import Tensor
 from torch_sparse import SparseTensor, matmul
 from sklearn.mixture import GaussianMixture
 import numpy as np
+import torch.nn.functional as F
+kl_loss = torch.nn.KLDivLoss(reduction="none",log_target = True)
+import torch.nn.functional as F
+from scipy.stats import entropy
+
 
 class AirGNN(torch.nn.Module):
     def __init__(self, dataset, args):
@@ -97,40 +103,103 @@ class AdaptiveMessagePassing(MessagePassing):
             x = self.appnp_forward(x=x, hh=hh, edge_index=edge_index, K=self.K, alpha=self.alpha)
 
         elif mode in ['AirGNN']:
-            x = self.amp_forward(x=x, hh=hh, edge_index=edge_index, K=self.K)
+            x = self.amp_forward(x=x, hh=hh, edge_index=edge_index, K=self.K,alpha = self.alpha)
         else:
             raise ValueError('wrong propagate mode')
         return x
 
     def appnp_forward(self, x, hh, edge_index, K, alpha):
+        gamma = 1
+        lambda_amp = 0.5
+        alpha = 0.1
         for k in range(K):
-            x = self.propagate(edge_index, x=x, edge_weight=None, size=None)
+            #y = x - gamma * 2 * (1 - lambda_amp) * self.compute_LX(x=x, edge_index=edge_index)  # Equation (9)
+            # x = hh + self.proximal_L21(x=y - hh, lambda_=gamma * lambda_amp) # Equation (11) and (12)
+
+            x = self.propagate(x=x,edge_index = edge_index, edge_weight=None, size=None)
             x = x * (1 - alpha)
-            x += alpha * hh
+            x += alpha * hh # + self.proximal_L21(x=y - hh, lambda_=gamma * lambda_amp)
+            #x = hh + self.proximal_L21(x = y-hh,lambda_ = gamma*lambda_amp)
         return x
 
 
+#     def compute_fast_KL(self, m1, s1, p1, m2, s2, p2):
+#         '''Compute the KLDivergence between two gaussians, KL(P|Q) scaled between 0 and 1'''
+#         #note: precision = p = inv(s)
+#         #d = len(m1)
+#         kl = 0.5*( np.log2( np.linalg.det(s2)/np.linalg.det(s1) ) - d + np.trace(np.matmul(p2, s1)) + ((m2-m1).T)@(p2)@(m2-m1) )
+#         scaled_kl = 1 - np.exp(-kl)
+
+#         return scaled_kl
     def compute_fast_KL(self, m1, s1, p1, m2, s2, p2):
         '''Compute the KLDivergence between two gaussians, KL(P|Q) scaled between 0 and 1'''
         #note: precision = p = inv(s)
-        d = len(m1)
-        kl = 0.5*( np.log2( np.linalg.det(s2)/np.linalg.det(s1) ) - d + np.trace(np.matmul(p2, s1)) + ((m2-m1).T)@(p2)@(m2-m1) )
-        scaled_kl = 1 - np.exp(-kl)
+       # print("*****************",m1,"****************")
+        #d = len(m1)
+        kl = 0.5*( torch.log2(s2/s1 ) - 1 + (p2*s1) + ((m2-m1))*(p2)*(m2-m1) )
+        scaled_kl = 1 - torch.exp(-kl)
 
         return scaled_kl
 
-    def amp_forward(self, x, hh, K, edge_index):
+#     def amp_forward(self, x, hh, K, edge_index):
+#         lambda_amp = self.args.lambda_amp
+#         gamma = 1 / (2 * (1 - lambda_amp))  ## or simply gamma = 1
+
+#         for k in range(K):
+#             y = x - gamma * 2 * (1 - lambda_amp) * self.compute_LX(x=x, edge_index=edge_index)  # Equation (9)
+#             #y = x - self.compute_LX(x=x,edge_index = edge_index)
+#             # gmXin = GaussianMixture(n_components=1, random_state=0).fit(hh.detach().to('cpu').numpy())
+#             # gmY = GaussianMixture(n_components=1, random_state=0).fit(y.detach().to('cpu').numpy())
+#             # scaled_KL = self.compute_fast_KL(m1=gmXin.means_[0], s1=gmXin.covariances_[0], p1 = gmXin.precisions_[0],m2=gmY.means_[0], s2 = gmY.covariances_[0], p2 = gmY.precisions_[0])
+#             # # #x = hh + (1-scaled_KL)*(y-hh) #we use 1-kl because we want to more heavily weigh closer samples.
+#             # x = hh + (scaled_KL)*(y-hh) #we use 1-kl because we want to more heavily weigh closer samples.
+
+#             x = hh + self.proximal_L21(x=y - hh, lambda_=gamma * lambda_amp) # Equation (11) and (12)
+#         return x
+#     def amp_forward(self, x, hh, K, edge_index,alpha):
+#         lambda_amp = self.args.lambda_amp
+#         gamma = 1 / (2 * (1 - lambda_amp))  ## or simply gamma = 1
+  
+#         for k in range(K):
+#             y = x - gamma * 2 * (1 - lambda_amp) * self.compute_LX(x=x, edge_index=edge_index)  # Equation (9)
+      
+#             k = np.zeros((hh.size()[0],1))
+#             for i in range(hh.size()[0]):
+#                 unscaled = entropy(F.softmax(hh[i]).to('cpu').detach().numpy(),F.softmax(y[i]).to('cpu').detach().numpy())
+#                 scaled = 1-np.exp(-unscaled)
+#                 k[i][0] = 1-np.exp(-unscaled)
+#             k = np.where(k<np.percentile(k,90),0,0.1)
+                
+   
+             ##x = hh + (1-scaled_KL)*(y-hh) #we use 1-kl because we want to more heavily weigh closer samples.
+#              #x = hh + (scaled_KL)*(y-hh) #we use 1-kl because we want to more heavily weigh closer samples.
+#             x = alpha * hh + (1 - alpha)*y + torch.tensor(k).to('cuda')*(y-hh)
+
+#             #x = hh + self.proximal_L21(x=y - hh, lambda_=gamma * lambda_amp) # Equation (11) and (12)
+#         return x
+
+    def amp_forward(self, x, hh, K, edge_index,alpha):
         lambda_amp = self.args.lambda_amp
         gamma = 1 / (2 * (1 - lambda_amp))  ## or simply gamma = 1
-
+  
         for k in range(K):
             y = x - gamma * 2 * (1 - lambda_amp) * self.compute_LX(x=x, edge_index=edge_index)  # Equation (9)
-            gmXin = GaussianMixture(n_components=1, random_state=0).fit(hh.detach().to('cpu').numpy())
-            gmY = GaussianMixture(n_components=1, random_state=0).fit(y.detach().to('cpu').numpy())
-            scaled_KL = self.compute_fast_KL(m1=gmXin.means_[0], s1=gmXin.covariances_[0], p1 = gmXin.precisions_[0],
-                                            m2=gmY.means_[0], s2 = gmY.covariances_[0], p2 = gmY.precisions_[0])
-            #x = hh + (1-scaled_KL)*(y-hh) #we use 1-kl because we want to more heavily weigh closer samples.
-            x = hh + (scaled_KL)*(y-hh) #we use 1-kl because we want to more heavily weigh closer samples.
+      
+            # k = np.zeros((hh.size()[0],1))
+            # for i in range(hh.size()[0]):
+            #     unscaled = entropy(F.softmax(hh[i]).to('cpu').detach().numpy(),F.softmax(y[i]).to('cpu').detach().numpy())
+            #     scaled = 1-np.exp(-unscaled)
+            #     k[i][0] = 1-np.exp(-unscaled)
+            # k = np.where(k<np.percentile(k,90),0,0.1)
+            kl = kl_loss(F.log_softmax(hh),F.log_softmax(y))
+            kl = kl.sum(dim =1)
+            kl = torch.where(kl<torch.quantile(kl,0.9),0.0,0.1)
+            #print("*****************",k.size())
+                
+   
+              # x = hh + (1-scaled_KL)*(y-hh) #we use 1-kl because we want to more heavily weigh closer samples.
+              # x = hh + (scaled_KL)*(y-hh) #we use 1-kl because we want to more heavily weigh closer samples.
+            x = alpha * hh + (1 - alpha)*y + kl.unsqueeze(1)*(y-hh)
 
             #x = hh + self.proximal_L21(x=y - hh, lambda_=gamma * lambda_amp) # Equation (11) and (12)
         return x
@@ -156,7 +225,3 @@ class AdaptiveMessagePassing(MessagePassing):
         return '{}(K={}, alpha={}, mode={}, dropout={}, lambda_amp={})'.format(self.__class__.__name__, self.K,
                                                                self.alpha, self.mode, self.dropout,
                                                                self.args.lambda_amp)
-
-
-
-

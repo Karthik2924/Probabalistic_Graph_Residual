@@ -34,6 +34,7 @@ def main():
     args = parser.parse_args()
     print('arg : ', args)
     dataset, permute_masks = prepare_data(args, lcc=args.lcc)
+    print(type(dataset))
     model = AirGNN(dataset, args)
     test_acc = run(dataset, model, args.runs, args.epochs, args.lr, args.weight_decay, args.early_stopping,
                    permute_masks, logger=None, args=args) ## TODO: test or val acc

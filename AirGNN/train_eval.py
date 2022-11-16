@@ -56,7 +56,7 @@ def run(dataset, model, runs, epochs, lr, weight_decay, early_stopping,
                 test_acc = eval_info['test_acc']
 
                 if args.model_cache:
-                    # print("*** Saving Checkpoint ***")
+                   # print("*** Saving Checkpoint ***")
                     torch.save({
                         'epoch': epoch,
                         'model_state_dict': model.state_dict(),

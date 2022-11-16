@@ -41,7 +41,7 @@ def main():
         acc_lst_dic[perturbation_number] = []
 
     if args.dataset in ["Cora", "CiteSeer", "PubMed"]:
-        for run_k in range(args.runs):
+        for run_k in tqdm(range(args.runs)):
             perturbation_acc_dic = nettack_run(args.dataset.lower(), run_k, n_perturbations_candidates)
             for key, val in perturbation_acc_dic.items():
                 acc_lst_dic[key].append(val)
@@ -73,8 +73,8 @@ def nettack_run(dataset_name, run_k, n_perturbations_candidates):
             if target_node_acc == 0:
                 target_accuracy_dic[perturbation] += 1
 
-            print("=========Attacked Node: {:d}, n_perturbations: {:.2f}=========".format(target_node, perturbation))
-        print(args.model, args.lambda_amp)
+            #print("=========Attacked Node: {:d}, n_perturbations: {:.2f}=========".format(target_node, perturbation))
+        #print(args.model, args.lambda_amp)
 
     assert num == 40
     for key in target_accuracy_dic.keys():
@@ -97,7 +97,7 @@ def get_target_nodelst(dataset_name):
     return node_list
 
 def get_adv_data(uid):
-    print("./fixed_data/adv_attack/"+uid+".pickle")
+    #print("./fixed_data/adv_attack/"+uid+".pickle")
     if os.path.isfile("./fixed_data/adv_attack/"+uid+".pickle"):
         return pickle.load(open("./fixed_data/adv_attack/"+uid+".pickle",'rb'))
     else:
