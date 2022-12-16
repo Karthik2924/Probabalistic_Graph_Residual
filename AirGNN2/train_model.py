@@ -7,8 +7,6 @@ from datasets import str2bool
 from train_eval import run
 from datasets import prepare_data
 from model import AirGNN
-import warnings
-warnings.filterwarnings('ignore')
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--dataset', type=str, default='Cora')
@@ -28,6 +26,9 @@ parser.add_argument('--hidden', type=int, default=64)
 parser.add_argument('--dropout', type=float, default=0.8, help="dropout")
 parser.add_argument('--K', type=int, default=10, help="the number of propagagtion in AirGNN")
 parser.add_argument('--model_cache', type=str2bool, default=False)
+parser.add_argument('--noise', type=str2bool, default=False)
+parser.add_argument('--noise_level', type=float, default=0.0)
+
 
 
 def main():
