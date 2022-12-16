@@ -22,7 +22,7 @@ parser.add_argument('--runs', type=int, default=10)
 parser.add_argument('--dropout', type=float, default=0.5, help="dropout")
 parser.add_argument('--hidden', type=int, default=64)
 parser.add_argument('--K', type=int, default=10, help="the number of propagagtion in AirGNN")
-parser.add_argument('--alpha', type=float, default=None)
+parser.add_argument('--alpha', type=float, default=0.1)
 parser.add_argument('--lambda_amp', type=float, default=0.1)
 
 
