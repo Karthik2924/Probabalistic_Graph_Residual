@@ -22,7 +22,7 @@ parser.add_argument('--runs', type=int, default=10)
 parser.add_argument('--dropout', type=float, default=0.5, help="dropout")
 parser.add_argument('--hidden', type=int, default=64)
 parser.add_argument('--K', type=int, default=10, help="the number of propagagtion in AirGNN")
-parser.add_argument('--alpha', type=float, default=None)
+parser.add_argument('--alpha', type=float, default=0.1)
 parser.add_argument('--lambda_amp', type=float, default=0.1)
 
 
@@ -31,6 +31,7 @@ print('arg : ', args)
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 print("device: in train_eval:", device)
+
 
 
 def main():
@@ -73,14 +74,14 @@ def nettack_run(dataset_name, run_k, n_perturbations_candidates):
             if target_node_acc == 0:
                 target_accuracy_dic[perturbation] += 1
 
-            print("=========Attacked Node: {:d}, n_perturbations: {:.2f}=========".format(target_node, perturbation))
-        print(args.model, args.lambda_amp)
+            #print("=========Attacked Node: {:d}, n_perturbations: {:.2f}=========".format(target_node, perturbation))
+        #print(args.model, args.lambda_amp)
 
     assert num == 40
     for key in target_accuracy_dic.keys():
         target_accuracy_dic[key] = 1 - target_accuracy_dic[key] / num
 
-    print("Accuracy on 40 target nodes:", target_accuracy_dic)
+    #print("Accuracy on 40 target nodes:", target_accuracy_dic)
     return target_accuracy_dic
 
 
@@ -93,11 +94,12 @@ def get_target_nodelst(dataset_name):
             node_indexes.append(int(i.split("_")[1]))
 
     node_list = list(set(node_indexes))
+    print(len(node_list))
     assert len(node_list) == 40
     return node_list
 
 def get_adv_data(uid):
-    print("./fixed_data/adv_attack/"+uid+".pickle")
+    #print("./fixed_data/adv_attack/"+uid+".pickle")
     if os.path.isfile("./fixed_data/adv_attack/"+uid+".pickle"):
         return pickle.load(open("./fixed_data/adv_attack/"+uid+".pickle",'rb'))
     else:
@@ -109,7 +111,7 @@ def adv_test(key_node_index, attacked_dpr_data, neighbor_lst, run_k):
     data = dataset[0]
     data = data.to(device)
 
-    if args.model in ["APPNP", "AirGNN", "MLP"]:
+    if args.model in ["APPNP", "AirGNN", "MLP","kl_res","ks"]:
         model = AirGNN(dataset, args)
     else:
         raise Exception("Unsupported model mode!!!")
@@ -117,7 +119,7 @@ def adv_test(key_node_index, attacked_dpr_data, neighbor_lst, run_k):
     # 10 best models will be tested on the same attacked data
     model.to(device).reset_parameters()
     checkpointPath = "./model/lcc/{}_{}_best_model_run_{}.pth".format(args.dataset, args.model, run_k)
-    print("checkpointPath:", checkpointPath)
+    #print("checkpointPath:", checkpointPath)
     checkpoint = torch.load(checkpointPath)
     model.load_state_dict(checkpoint["model_state_dict"])
 
@@ -126,6 +128,8 @@ def adv_test(key_node_index, attacked_dpr_data, neighbor_lst, run_k):
     logits = model(data)
     probs = torch.exp(logits[[key_node_index]])
     target_node_acc = (logits.argmax(1)[key_node_index] == data.y[key_node_index]).item()  # True/False
+    # with open('klres.npy', 'wb') as f:
+    #     np.save(f, model.prop.kl_residual)
     # print("single_target_predict\n:", logits.argmax(1)[key_node_index].item(), data.y[key_node_index].item(), target_node_acc)
     return target_node_acc
 

@@ -34,11 +34,28 @@ parser.add_argument('--noise_level', type=float, default=0.0)
 def main():
     args = parser.parse_args()
     print('arg : ', args)
-    dataset, permute_masks = prepare_data(args, lcc=args.lcc)
-    model = AirGNN(dataset, args)
-    test_acc = run(dataset, model, args.runs, args.epochs, args.lr, args.weight_decay, args.early_stopping,
-                   permute_masks, logger=None, args=args) ## TODO: test or val acc
-    return test_acc
+    #dataset, permute_masks = prepare_data(args, lcc=args.lcc)
+    #model = AirGNN(dataset, args)
+    config = {"model" : args.model,
+             "LCC": args.lcc,
+             "acc" : {}
+             }
+    noise_levels = [0.0, 0.05,0.1,0.15,0.2,0.25]
+    for i in noise_levels:
+        
+        args.noise = True
+        args.noise_level = i
+        args.runs = 2
+        dataset, permute_masks = prepare_data(args, lcc=args.lcc)
+
+        model = AirGNN(dataset, args)
+        test_acc = run(dataset, model, args.runs, args.epochs, args.lr, args.weight_decay, args.early_stopping,
+                       permute_masks, logger=None, args=args) ## TODO: test or val acc
+        
+        config["acc"][i] = test_acc
+    print(config)
+    return config
+        
 
 
 if __name__ == "__main__":
