@@ -5,6 +5,6 @@ The full paper describing our project's methodology, strenghts and weaknesses ca
 
 * Our model is located in AirGNN
 
-AirGNN_OG holds the original AirGNN
+* AirGNN_OG holds the original AirGNN
 
 * AirGNN2 is junk code (not to be used).
