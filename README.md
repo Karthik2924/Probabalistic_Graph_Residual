@@ -10,7 +10,6 @@ The full paper describing our project's methodology, strenghts and weaknesses ca
 * AirGNN_OG holds the original AirGNN
 
 ## Reference
-Please cite our paper if you find the paper or code to be useful. Thank you!
 
 ```
 @inproceedings{
